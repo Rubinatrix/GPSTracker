@@ -16,6 +16,11 @@ Content-Type: application/json
 Success status: 201 Created
 Headers:
 Location: url for getting info about created track
+Body:
+{
+  "id": new id,
+  "name": value
+}
 
 2)	Change track info	
 http://tracker-rubinatrix.rhcloud.com/api/track/{id}	
@@ -77,6 +82,11 @@ file = file content
 Success status: 200 OK
 Headers:
 Location: url for downloaded image
+Body:
+{
+  "id": new image id,
+  "name": image name
+}
 Fail status: 404 Not Found
 
 7)	Delete .jpeg from track	
