@@ -1,6 +1,11 @@
 package controller.rest;
 
 import DTO.IMGGeoTagDTO;
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.ImageProcessingException;
+import com.drew.metadata.Directory;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.GpsDirectory;
 import com.fasterxml.jackson.annotation.JsonView;
 import domain.Track;
 import domain.TrackIMG;
@@ -14,11 +19,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 import service.interfaces.ImageService;
 import service.interfaces.TrackService;
 import utils.GPSTrackerException;
-import utils.geotagreader.GeoTag;
-import utils.geotagreader.JpegGeoTagReader;
-
 import javax.annotation.Resource;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +41,7 @@ public class ImageControllerREST {
 
     @JsonView(TrackIMG.class)
     @RequestMapping(value = "/track/{trackId}/image/", method = RequestMethod.POST)
-    public ResponseEntity<TrackIMG> addImage(@PathVariable("trackId") Long trackId, @RequestParam("file") MultipartFile file, UriComponentsBuilder ucBuilder) throws GPSTrackerException{
+    public ResponseEntity<TrackIMG> addImage(@PathVariable("trackId") Long trackId, @RequestParam("file") MultipartFile file, UriComponentsBuilder ucBuilder) throws GPSTrackerException {
 
         Track currentTrack = trackService.get(trackId);
         if (currentTrack == null) {
@@ -67,21 +70,25 @@ public class ImageControllerREST {
     }
 
     @RequestMapping(value = "/track/{trackId}/geotags", method = RequestMethod.GET)
-    public List<IMGGeoTagDTO> getGeotagsByTrackId(@PathVariable("trackId") Long trackId) {
+    public List<IMGGeoTagDTO> getGeotagsByTrackId(@PathVariable("trackId") Long trackId) throws ImageProcessingException, IOException {
 
         List<IMGGeoTagDTO> result = new ArrayList<>();
         List<TrackIMG> trackIMGList = imageService.getAllByTrackId(trackId);
 
-        for (TrackIMG trackIMG: trackIMGList) {
+        for (TrackIMG trackIMG : trackIMGList) {
             if (trackIMG == null) {
                 continue;
             }
 
-            JpegGeoTagReader jpegGeoTagReader = new JpegGeoTagReader();
             try {
-                GeoTag geoTag = jpegGeoTagReader.readMetadata(new ByteArrayInputStream(trackIMG.getIMG()));
-                result.add(new IMGGeoTagDTO(trackIMG.getId(), geoTag.getLatitude(), geoTag.getLongitude()));
-            } catch (Exception e){
+                Metadata metadata = ImageMetadataReader.readMetadata(new ByteArrayInputStream(trackIMG.getIMG()));
+                Directory directory = metadata.getFirstDirectoryOfType(GpsDirectory.class);
+                if (directory != null) {
+                    double longitude = ((GpsDirectory) directory).getGeoLocation().getLongitude();
+                    double latitude = ((GpsDirectory) directory).getGeoLocation().getLatitude();
+                    result.add(new IMGGeoTagDTO(trackIMG.getId(), latitude, longitude));
+                }
+            } catch (Exception e) {
                 continue;
             }
         }
